@@ -1,0 +1,1 @@
+"""Vendor Onboarding Automation backend."""
