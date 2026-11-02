@@ -3,7 +3,11 @@
   <head><meta charset="utf-8"><title>Vendor document upload</title></head>
   <body>
     <h1>Vendor document upload</h1>
-    <ul>{% for document_type in document_types %}<li>{{ document_type }}</li>{% endfor %}</ul>
-    <p>Upload opens in Phase 5.</p>
+    <form method="post" action="{{ action }}" enctype="multipart/form-data">
+      {% for document_type in document_types %}
+      <label>{{ document_type }} <input type="file" name="file_{{ loop.index0 }}" required></label>
+      {% endfor %}
+      <button type="submit">Upload documents</button>
+    </form>
   </body>
 </html>

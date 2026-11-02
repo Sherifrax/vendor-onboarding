@@ -43,6 +43,11 @@ check-4:
 	$(MAKE) test
 	$(MAKE) lint
 
+check-5:
+	$(MAKE) seed
+	$(MAKE) test
+	$(MAKE) lint
+
 check-%:
 	@echo "check-$* is not implemented until its phase."
 	@exit 1

@@ -6,23 +6,32 @@ from typing import Annotated
 
 from fastapi import FastAPI, Form, HTTPException, status
 from fastapi import Request as HttpRequest
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from fastapi.templating import Jinja2Templates
+from starlette.datastructures import UploadFile
 
-from app.ai import get_extractor
+from app.ai import DocumentClassifier, FakeAI, get_extractor
 from app.config import get_settings
 from app.db import SessionLocal, check_database
 from app.mail import ConsoleMailer
+from app.models import Document
 from app.models import Request as VendorRequest
 from app.schemas import IncomingEmail, IntakeResponse
 from app.services.audit import log
+from app.services.documents import MAX_DOCUMENT_BYTES, review, upload
 from app.services.gate import run as run_gate
 from app.services.intake import process_email
 from app.services.tokens import consume, verify
+from app.storage import get_storage
 
 app = FastAPI(title="Vendor Onboarding Automation", version="0.1.0")
-app.state.extractor = get_extractor(get_settings())
+settings = get_settings()
+app.state.extractor = get_extractor(settings)
+app.state.document_classifier: DocumentClassifier = (
+    app.state.extractor if settings.document_ai_mode == "live" else FakeAI()
+)
 app.state.mailer = ConsoleMailer()
+app.state.storage = get_storage(settings)
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
 
@@ -202,13 +211,109 @@ async def submit_duplicate_form(
 
 @app.get("/forms/documents/{token}", response_class=HTMLResponse, tags=["forms"])
 async def document_form(token: str, http_request: HttpRequest) -> HTMLResponse:
-    """Validate the upload link; Phase 5 adds file inputs and storage."""
+    """Render one private upload input for each required document type."""
 
     action = await _valid_token(token, "document_upload")
     document_types = action.payload.get("document_types", [])
     return templates.TemplateResponse(
-        http_request, "document_form.html", {"document_types": document_types}
+        http_request,
+        "document_form.html",
+        {"action": http_request.url.path, "document_types": document_types},
     )
+
+
+@app.post("/forms/documents/{token}", response_class=HTMLResponse, tags=["forms"])
+async def submit_document_form(token: str, http_request: HttpRequest) -> HTMLResponse:
+    """Validate private uploads and route them to hold or human review."""
+
+    async with SessionLocal.begin() as session:
+        action = await verify(session, token, "document_upload")
+        if action is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="invalid action link")
+        form = await http_request.form()
+        document_types = [str(item) for item in action.payload.get("document_types", [])]
+        files: dict[str, tuple[str, bytes]] = {}
+        for index, document_type in enumerate(document_types):
+            upload_file = form.get(f"file_{index}")
+            if isinstance(upload_file, UploadFile) and upload_file.filename:
+                content = await upload_file.read(MAX_DOCUMENT_BYTES + 1)
+                files[document_type] = (upload_file.filename, content)
+        request = await session.get(VendorRequest, action.tracking_id)
+        assert request is not None
+        if request.documents_clearance != "pending_upload":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail="documents are not awaiting upload"
+            )
+        outcome = await upload(
+            session,
+            request,
+            files,
+            document_types,
+            app.state.document_classifier,
+            app.state.storage,
+            app.state.mailer,
+        )
+    return HTMLResponse(f"<p>Document upload result: {escape(outcome)}</p>")
+
+
+@app.get("/forms/review/{token}", response_class=HTMLResponse, tags=["forms"])
+async def review_form(token: str, http_request: HttpRequest) -> HTMLResponse:
+    """Show the human document-review form without consuming its action token."""
+
+    await _valid_token(token, "document_review")
+    return _form_page(
+        http_request,
+        "Document review",
+        token,
+        "<label>Decision <select name='decision'><option value='accept_all'>Accept all</option>"
+        "<option value='reject'>Reject</option></select></label>"
+        "<label>Notes <textarea name='notes'></textarea></label>",
+    )
+
+
+@app.post("/forms/review/{token}", response_class=HTMLResponse, tags=["forms"])
+async def submit_review_form(
+    token: str,
+    decision: Annotated[str, Form()],
+    notes: Annotated[str, Form()] = "",
+) -> HTMLResponse:
+    """Consume a reviewer action, update all referenced documents, then run the gate."""
+
+    if decision not in {"accept_all", "reject"}:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="invalid decision"
+        )
+    async with SessionLocal.begin() as session:
+        action = await consume(session, token, "document_review")
+        if action is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="invalid action link")
+        document_ids = [int(item) for item in action.payload.get("document_ids", [])]
+        outcome = await review(
+            session, action.tracking_id, document_ids, decision, notes, app.state.mailer
+        )
+    return HTMLResponse(f"<p>Document review recorded: {escape(outcome)}</p>")
+
+
+@app.get("/documents/download/{token}", tags=["documents"])
+async def download_document(token: str) -> Response:
+    """Serve a local private file only after a short-lived download token validates."""
+
+    async with SessionLocal() as session:
+        action = await verify(session, token, "document_download")
+        if action is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="invalid download link"
+            )
+        document_id = action.payload.get("document_id")
+        document = await session.get(Document, document_id)
+        if document is None or document.tracking_id != action.tracking_id:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="document not found")
+        content = await app.state.storage.get(document.storage_key)
+        return Response(
+            content=content,
+            media_type=document.mime,
+            headers={"Content-Disposition": f'attachment; filename="{document.original_filename}"'},
+        )
 
 
 @app.post("/gate/{tracking_id}", tags=["gate"])

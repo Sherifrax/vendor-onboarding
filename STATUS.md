@@ -1,4 +1,4 @@
-# Status (last updated: 2026-11-02 17:20:13 UTC)
+# Status (last updated: 2026-11-02 17:31:16 UTC)
 
 | Phase | Title | Tier | State | Checkpoint | Commit / tag |
 |---|---|---|---|---|---|
@@ -7,7 +7,7 @@
 | 2 | Intake pipeline | MUST | done | pass | phase 2: intake pipeline / checkpoint-2 |
 | 3 | Checks | MUST | done | pass | phase 3: checks and requirements / checkpoint-3 |
 | 4 | Approvals, forms, final gate | MUST | done | pass | phase 4: approvals and final gate / checkpoint-4 |
-| 5 | Documents | SHOULD | not started | n.a. | |
+| 5 | Documents | SHOULD | done | pass | phase 5: document handling / checkpoint-5 |
 | 6 | Reminders, scheduler, errors | MUST | not started | n.a. | |
 | 7 | Frontend dashboard | SHOULD | not started | n.a. | |
 | 8 | Test suite and evidence | MUST | not started | n.a. | |
@@ -16,12 +16,12 @@
 
 ## Last checkpoint output
 
-Phase 4 checkpoint passed on 2026-11-02 UTC:
+Phase 5 checkpoint passed on 2026-11-02 UTC:
 
-- `make check-4` → `make seed`, `make test`, and `make lint` all passed.
-- `make test` → `24 passed, 1 warning in 0.25s`.
+- `make check-5` → `make seed`, `make test`, and `make lint` all passed.
+- `make test` → `29 passed, 1 warning in 0.32s`.
 - `make lint` → `ruff check .: All checks passed!`; `ruff format --check .:`
-  `31 files already formatted`.
+  `34 files already formatted`.
 - `curl http://localhost:8000/health` → `{"status":"ok","db":"ok"}`.
 
 The one warning is the FastAPI/Starlette TestClient deprecation warning and
@@ -44,18 +44,21 @@ does not fail the suite.
   manager and duplicate decisions, while document upload remains available for Phase 5.
 - Use a PostgreSQL row lock plus unique vendor keys at the final gate; 20 concurrent calls
   produced exactly one vendor in the checkpoint test.
+- Keep local files outside the public HTTP path and expose them only through a short-lived
+  download token. S3 uses private objects, server-side encryption, and presigned URLs.
+- Keep document AI routing in `DOCUMENT_AI_MODE=fake` by default. Enabling `live` uses the
+  existing OpenAI credential but still fails closed to `uncertain` on any error.
 
 ## Known gaps / partial items
 
 - The Gmail source has a complete batch-processing adapter contract, but OAuth credential
   wiring is deferred until a real Gmail deployment is configured.
-- File upload, storage, and document review are deferred to Phase 5; the document link
-  currently shows the exact checklist only.
+- S3 storage is implemented but has not been integration-tested against a real AWS bucket.
 - Outbound mail remains `ConsoleMailer`; SMTP, SES, and Gmail OAuth are not configured.
 
 ## Next action
 
-- Begin Phase 5: private document upload, storage, classification, and review.
+- Begin Phase 6: reminders, scheduling, and global error handling.
 
 ## Environment
 

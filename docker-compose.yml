@@ -22,14 +22,21 @@ services:
       ADMIN_TOKEN: change-me
       TOKEN_SECRET: change-me
       AI_MODE: ${AI_MODE:-fake}
+      DOCUMENT_AI_MODE: ${DOCUMENT_AI_MODE:-fake}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
+      STORAGE_MODE: ${STORAGE_MODE:-local}
+      LOCAL_STORAGE_DIR: ${LOCAL_STORAGE_DIR:-/app/data/documents}
+      S3_BUCKET: ${S3_BUCKET:-}
+      AWS_REGION: ${AWS_REGION:-}
       TZ: Asia/Dubai
     depends_on:
       db:
         condition: service_healthy
     ports:
       - "8000:8000"
+    volumes:
+      - document_data:/app/data
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s
@@ -38,3 +45,4 @@ services:
 
 volumes:
   postgres_data:
+  document_data:
