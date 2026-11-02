@@ -4,11 +4,15 @@ import asyncio
 from pathlib import Path
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
+from app.ai import ExtractionError, OpenAIExtractor, get_extractor
+from app.config import Settings
 from app.inbox import ManualSource, process_all
 from app.models import AuditLog, EmailOutbox, Request
+from app.schemas import IncomingEmail
 
 FIXTURES = Path(__file__).parents[1] / "fixtures"
 
@@ -171,5 +175,28 @@ def test_manual_source_processes_every_email_in_the_batch() -> None:
         result = await process_all(source, processor)
         assert len(result) == 2
         assert seen == result
+
+    asyncio.run(scenario())
+
+
+def test_live_mode_selects_openai_and_requires_a_local_key() -> None:
+    """Live extraction cannot silently run without the user-provided OpenAI key."""
+
+    settings = Settings(
+        database_url="postgresql+psycopg://vendor:vendor@db:5432/vendor",
+        admin_token="test",
+        token_secret="test",
+        ai_mode="live",
+        openai_api_key="",
+    )
+    extractor = get_extractor(settings)
+
+    assert isinstance(extractor, OpenAIExtractor)
+
+    async def scenario() -> None:
+        with pytest.raises(ExtractionError, match="OPENAI_API_KEY"):
+            await extractor.extract_request(
+                IncomingEmail(**payload("sample_email.txt", uuid4().hex, uuid4().hex))
+            )
 
     asyncio.run(scenario())

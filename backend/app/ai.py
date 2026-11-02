@@ -93,22 +93,22 @@ class FakeAI:
         )
 
 
-class AnthropicAI:
-    """Live Anthropic implementation, deliberately isolated from workflow decisions."""
+class OpenAIExtractor:
+    """Live OpenAI Responses implementation isolated from workflow decisions."""
 
     def __init__(self, settings: Settings) -> None:
-        self.api_key = settings.anthropic_api_key
-        self.model = settings.anthropic_model
+        self.api_key = settings.openai_api_key
+        self.model = settings.openai_model
 
     async def extract_request(self, email: IncomingEmail) -> ExtractedRequest:
         if not self.api_key:
-            raise ExtractionError("ANTHROPIC_API_KEY is required when AI_MODE=live")
+            raise ExtractionError("OPENAI_API_KEY is required when AI_MODE=live")
         try:
-            from anthropic import AsyncAnthropic
+            from openai import AsyncOpenAI
         except ImportError as error:  # pragma: no cover - installed in production images.
-            raise ExtractionError("anthropic SDK is not installed") from error
+            raise ExtractionError("openai SDK is not installed") from error
 
-        client = AsyncAnthropic(api_key=self.api_key)
+        client = AsyncOpenAI(api_key=self.api_key)
         schema = ExtractedRequest.model_json_schema()
         prompt = (
             f"From: {email.from_email}\nSubject: {email.subject}\n\n"
@@ -116,15 +116,20 @@ class AnthropicAI:
         )
         for _ in range(2):
             try:
-                response = await client.messages.create(
+                response = await client.responses.create(
                     model=self.model,
-                    max_tokens=1024,
-                    temperature=0,
-                    system=SYSTEM_PROMPT,
-                    messages=[{"role": "user", "content": prompt}],
+                    instructions=SYSTEM_PROMPT,
+                    input=prompt,
+                    text={
+                        "format": {
+                            "type": "json_schema",
+                            "name": "vendor_request",
+                            "strict": True,
+                            "schema": schema,
+                        }
+                    },
                 )
-                text = response.content[0].text
-                return ExtractedRequest.model_validate_json(text)
+                return ExtractedRequest.model_validate_json(response.output_text)
             except Exception:
                 continue
         raise ExtractionError("AI extraction returned invalid JSON after one retry")
@@ -134,5 +139,5 @@ def get_extractor(settings: Settings) -> RequestExtractor:
     """Select the configured implementation without exposing AI to business logic."""
 
     if settings.ai_mode == "live":
-        return AnthropicAI(settings)
+        return OpenAIExtractor(settings)
     return FakeAI()

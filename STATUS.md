@@ -1,4 +1,4 @@
-# Status (last updated: 2026-11-02 12:27:28 UTC)
+# Status (last updated: 2026-11-02 20:49:00 UTC)
 
 | Phase | Title | Tier | State | Checkpoint | Commit / tag |
 |---|---|---|---|---|---|
@@ -18,7 +18,7 @@
 
 Phase 2 checkpoint passed on 2026-11-02 UTC:
 
-- `make test` → `9 passed, 1 warning in 0.09s`.
+- `make test` → `10 passed, 1 warning in 0.07s`.
 - `make lint` → `ruff check .: All checks passed!`; `ruff format --check .:`
   `21 files already formatted`.
 - `curl http://localhost:8000/health` → `{"status":"ok","db":"ok"}`.
@@ -32,8 +32,8 @@ does not fail the suite.
 - Use Docker Compose as the authoritative local verification environment.
 - Use PostgreSQL `ARRAY`/`JSONB` for the Phase 1 shared request state and payloads.
 - Keep the audit log immutable with a PostgreSQL trigger, not application convention.
-- Keep AI extraction behind an interface; local tests and the manual demo use deterministic
-  `FakeAI`, while `AI_MODE=live` selects the Anthropic SDK implementation.
+- Switched the live extractor from Anthropic to the OpenAI Responses API at the user's request.
+  Local tests and the manual demo keep deterministic `FakeAI`; `AI_MODE=live` selects OpenAI.
 - Keep all Phase 2 validation and state transitions deterministic; AI only extracts fields.
 
 ## Known gaps / partial items

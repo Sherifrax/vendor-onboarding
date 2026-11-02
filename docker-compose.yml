@@ -21,6 +21,9 @@ services:
       DATABASE_URL: postgresql+psycopg://vendor:vendor@db:5432/vendor
       ADMIN_TOKEN: change-me
       TOKEN_SECRET: change-me
+      AI_MODE: ${AI_MODE:-fake}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
       TZ: Asia/Dubai
     depends_on:
       db:

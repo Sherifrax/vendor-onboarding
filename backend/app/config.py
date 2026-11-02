@@ -15,8 +15,8 @@ class Settings(BaseSettings):
     admin_token: str
     token_secret: str
     ai_mode: str = "fake"
-    anthropic_api_key: str = ""
-    anthropic_model: str = "claude-sonnet-4-20250514"
+    openai_api_key: str = ""
+    openai_model: str = "gpt-4.1-mini"
     mail_mode: str = "console"
     public_base_url: str = "http://localhost:8000"
     inbox_mode: str = "manual"
