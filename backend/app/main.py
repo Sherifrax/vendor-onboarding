@@ -1,31 +1,48 @@
 """FastAPI application entry point."""
 
+from contextlib import asynccontextmanager
 from html import escape
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import FastAPI, Form, HTTPException, status
+from fastapi import FastAPI, Form, Header, HTTPException, status
 from fastapi import Request as HttpRequest
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.templating import Jinja2Templates
 from starlette.datastructures import UploadFile
 
 from app.ai import DocumentClassifier, FakeAI, get_extractor
 from app.config import get_settings
 from app.db import SessionLocal, check_database
+from app.errors import record_error
 from app.mail import ConsoleMailer
 from app.models import Document
 from app.models import Request as VendorRequest
+from app.scheduler import start_scheduler
 from app.schemas import IncomingEmail, IntakeResponse
 from app.services.audit import log
 from app.services.documents import MAX_DOCUMENT_BYTES, review, upload
 from app.services.gate import run as run_gate
-from app.services.intake import process_email
+from app.services.intake import derive_thread_id, process_email
+from app.services.jobs import run_reminders_job
 from app.services.tokens import consume, verify
 from app.storage import get_storage
 
-app = FastAPI(title="Vendor Onboarding Automation", version="0.1.0")
 settings = get_settings()
+
+
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    """Run the optional local scheduler only for the application's lifetime."""
+
+    application.state.scheduler = start_scheduler(settings, application.state.mailer)
+    yield
+    scheduler = application.state.scheduler
+    if scheduler is not None:
+        scheduler.shutdown(wait=False)
+
+
+app = FastAPI(title="Vendor Onboarding Automation", version="0.1.0", lifespan=lifespan)
 app.state.extractor = get_extractor(settings)
 app.state.document_classifier: DocumentClassifier = (
     app.state.extractor if settings.document_ai_mode == "live" else FakeAI()
@@ -33,6 +50,14 @@ app.state.document_classifier: DocumentClassifier = (
 app.state.mailer = ConsoleMailer()
 app.state.storage = get_storage(settings)
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
+
+
+@app.exception_handler(Exception)
+async def workflow_exception_handler(http_request: HttpRequest, error: Exception) -> JSONResponse:
+    """Fail softly with a generic response after independently alerting and auditing."""
+
+    await record_error(getattr(http_request.state, "tracking_id", None), error, app.state.mailer)
+    return JSONResponse(status_code=500, content={"detail": "workflow error"})
 
 
 @app.get("/health", tags=["health"])
@@ -50,9 +75,10 @@ async def health() -> dict[str, str]:
 
 
 @app.post("/intake/email", response_model=IntakeResponse, tags=["intake"])
-async def intake_email(email: IncomingEmail) -> IntakeResponse:
+async def intake_email(email: IncomingEmail, http_request: HttpRequest) -> IntakeResponse:
     """Run extract → identify/upsert → validate for one untrusted manual email."""
 
+    http_request.state.tracking_id = f"VR-{derive_thread_id(email)}"
     async with SessionLocal.begin() as session:
         result = await process_email(session, email, app.state.extractor, app.state.mailer)
     return IntakeResponse(tracking_id=result.tracking_id, outcome=result.outcome)
@@ -323,3 +349,19 @@ async def gate(tracking_id: str) -> dict[str, str | None]:
     async with SessionLocal.begin() as session:
         result = await run_gate(session, tracking_id, app.state.mailer)
     return {"outcome": result.outcome, "reason": result.reason}
+
+
+@app.post("/jobs/reminders", tags=["jobs"])
+async def reminders_job(
+    x_admin_token: Annotated[str | None, Header()] = None,
+) -> dict[str, int]:
+    """Run document reminders only for callers holding the configured admin token."""
+
+    if x_admin_token != settings.admin_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="admin token required")
+    result = await run_reminders_job(app.state.mailer)
+    return {
+        "first_reminders": result.first_reminders,
+        "second_reminders": result.second_reminders,
+        "escalations": result.escalations,
+    }

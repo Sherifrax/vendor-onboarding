@@ -29,6 +29,8 @@ services:
       LOCAL_STORAGE_DIR: ${LOCAL_STORAGE_DIR:-/app/data/documents}
       S3_BUCKET: ${S3_BUCKET:-}
       AWS_REGION: ${AWS_REGION:-}
+      OWNER_ALERT_EMAIL: ${OWNER_ALERT_EMAIL:-owner@example.test}
+      SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-false}
       TZ: Asia/Dubai
     depends_on:
       db:

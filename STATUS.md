@@ -1,4 +1,4 @@
-# Status (last updated: 2026-11-02 17:31:16 UTC)
+# Status (last updated: 2026-11-02 17:41:09 UTC)
 
 | Phase | Title | Tier | State | Checkpoint | Commit / tag |
 |---|---|---|---|---|---|
@@ -8,7 +8,7 @@
 | 3 | Checks | MUST | done | pass | phase 3: checks and requirements / checkpoint-3 |
 | 4 | Approvals, forms, final gate | MUST | done | pass | phase 4: approvals and final gate / checkpoint-4 |
 | 5 | Documents | SHOULD | done | pass | phase 5: document handling / checkpoint-5 |
-| 6 | Reminders, scheduler, errors | MUST | not started | n.a. | |
+| 6 | Reminders, scheduler, errors | MUST | done | pass | phase 6: reminders and error handling / checkpoint-6 |
 | 7 | Frontend dashboard | SHOULD | not started | n.a. | |
 | 8 | Test suite and evidence | MUST | not started | n.a. | |
 | 9 | AWS deployment | SHOULD | not started | n.a. | |
@@ -16,12 +16,12 @@
 
 ## Last checkpoint output
 
-Phase 5 checkpoint passed on 2026-11-02 UTC:
+Phase 6 checkpoint passed on 2026-11-02 UTC:
 
-- `make check-5` → `make seed`, `make test`, and `make lint` all passed.
-- `make test` → `29 passed, 1 warning in 0.32s`.
+- `make check-6` → `make seed`, `make test`, and `make lint` all passed.
+- `make test` → `35 passed, 1 warning in 0.39s`.
 - `make lint` → `ruff check .: All checks passed!`; `ruff format --check .:`
-  `34 files already formatted`.
+  `39 files already formatted`.
 - `curl http://localhost:8000/health` → `{"status":"ok","db":"ok"}`.
 
 The one warning is the FastAPI/Starlette TestClient deprecation warning and
@@ -48,6 +48,10 @@ does not fail the suite.
   download token. S3 uses private objects, server-side encryption, and presigned URLs.
 - Keep document AI routing in `DOCUMENT_AI_MODE=fake` by default. Enabling `live` uses the
   existing OpenAI credential but still fails closed to `uncertain` on any error.
+- Run local reminders at 09:00 Asia/Dubai only when `SCHEDULER_ENABLED=true`; production
+  will use an external scheduler in Phase 9. The job endpoint requires the admin token.
+- Record workflow alerts and `ERROR` audit events in independent transactions so a mail
+  transport failure cannot erase the audit evidence.
 
 ## Known gaps / partial items
 
@@ -55,10 +59,12 @@ does not fail the suite.
   wiring is deferred until a real Gmail deployment is configured.
 - S3 storage is implemented but has not been integration-tested against a real AWS bucket.
 - Outbound mail remains `ConsoleMailer`; SMTP, SES, and Gmail OAuth are not configured.
+- The local APScheduler is disabled by default; it has unit coverage but is not left running
+  during the checkpoint suite.
 
 ## Next action
 
-- Begin Phase 6: reminders, scheduling, and global error handling.
+- Begin Phase 7: frontend dashboard.
 
 ## Environment
 

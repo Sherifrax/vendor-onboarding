@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     public_base_url: str = "http://localhost:8000"
     sourcing_manager_email: str = "sourcing@example.test"
     master_data_email: str = "master-data@example.test"
+    owner_alert_email: str = "owner@example.test"
     storage_mode: str = "local"
     local_storage_dir: str = "/app/data/documents"
     s3_bucket: str = ""
@@ -29,6 +30,7 @@ class Settings(BaseSettings):
     inbox_mode: str = "manual"
     gmail_label: str = "vendor-requests"
     tz: str = "Asia/Dubai"
+    scheduler_enabled: bool = False
 
 
 @lru_cache
