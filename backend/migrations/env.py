@@ -1,17 +1,22 @@
 """Alembic environment for Vendor Onboarding Automation."""
 
+import os
 from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from app import models  # noqa: F401
+from app.db import Base
+
 config = context.config
+database_url = os.environ.get("DATABASE_URL", config.get_main_option("sqlalchemy.url"))
+config.set_main_option("sqlalchemy.url", database_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Phase 1 supplies SQLAlchemy metadata and the first revision.
-target_metadata = None
+target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:

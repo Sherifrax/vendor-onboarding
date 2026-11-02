@@ -16,11 +16,16 @@ lint:
 	$(COMPOSE) run --rm backend ruff format --check .
 
 seed:
-	@echo "Seed data is introduced in Phase 1."
-	@exit 1
+	$(COMPOSE) run --rm -v $(CURDIR)/scripts:/app/scripts backend python /app/scripts/seed.py
 
 check-0:
 	curl --fail --silent --show-error http://localhost:8000/health
+	$(MAKE) test
+	$(MAKE) lint
+
+check-1:
+	$(MAKE) seed
+	$(MAKE) seed
 	$(MAKE) test
 	$(MAKE) lint
 
