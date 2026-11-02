@@ -11,6 +11,7 @@ from app.mail import Mailer, send
 from app.models import Request
 from app.schemas import ExtractedRequest, IncomingEmail
 from app.services.audit import log
+from app.services.checks import run as run_checks
 from app.services.validate import ValidationResult, validate_request
 
 
@@ -127,7 +128,8 @@ async def process_email(
         "all required Phase 2 fields present",
         "system",
     )
-    return IntakeResult(request.tracking_id, "validated")
+    checks = await run_checks(session, request, mailer)
+    return IntakeResult(request.tracking_id, checks.outcome)
 
 
 async def _record_needs_info(

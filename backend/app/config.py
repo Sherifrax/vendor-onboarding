@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-4.1-mini"
     mail_mode: str = "console"
     public_base_url: str = "http://localhost:8000"
+    sourcing_manager_email: str = "sourcing@example.test"
+    master_data_email: str = "master-data@example.test"
     inbox_mode: str = "manual"
     gmail_label: str = "vendor-requests"
     tz: str = "Asia/Dubai"
