@@ -14,6 +14,13 @@ class Settings(BaseSettings):
     database_url: str
     admin_token: str
     token_secret: str
+    ai_mode: str = "fake"
+    anthropic_api_key: str = ""
+    anthropic_model: str = "claude-sonnet-4-20250514"
+    mail_mode: str = "console"
+    public_base_url: str = "http://localhost:8000"
+    inbox_mode: str = "manual"
+    gmail_label: str = "vendor-requests"
     tz: str = "Asia/Dubai"
 
 

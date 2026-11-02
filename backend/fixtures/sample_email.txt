@@ -1,0 +1,12 @@
+From: john.smith@company.com
+Subject: New Vendor Request - Acme Supplies Ltd
+
+Q1 Company Name: Acme Supplies Ltd
+Q2 Entities/Locations: Singapore, Malaysia
+Q3 Documentation Contact: Jane Doe (jane.doe@acme.com)
+Q4 Authorized Contact: Robert Lee (robert.lee@acme.com, +65-1234-5678)
+Q5 Services/Products: IT Hardware and Software Licensing
+Payment Terms: 60 days
+Estimated Annual Spend: $150,000 USD
+Vendor Country: Singapore
+Business Justification: Replace end-of-life employee laptops.

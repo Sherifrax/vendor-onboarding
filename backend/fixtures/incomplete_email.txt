@@ -1,0 +1,5 @@
+From: john.smith@company.com
+Subject: New Vendor Request - Incomplete
+
+Q1 Company Name: Incomplete Supplies
+Vendor Country: Singapore

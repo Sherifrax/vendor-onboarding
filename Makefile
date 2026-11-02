@@ -29,6 +29,10 @@ check-1:
 	$(MAKE) test
 	$(MAKE) lint
 
+check-2:
+	$(MAKE) test
+	$(MAKE) lint
+
 check-%:
 	@echo "check-$* is not implemented until its phase."
 	@exit 1

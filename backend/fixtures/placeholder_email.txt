@@ -1,0 +1,12 @@
+From: john.smith@company.com
+Subject: New Vendor Request - Placeholder
+
+Q1 Company Name: [Company Name]
+Q2 Entities/Locations: TBD
+Q3 Documentation Contact: N/A
+Q4 Authorized Contact: unknown
+Q5 Services/Products: lorem ipsum
+Payment Terms: sixty
+Estimated Annual Spend: $1,000 USD
+Vendor Country: Singapore
+Business Justification: [Justification]

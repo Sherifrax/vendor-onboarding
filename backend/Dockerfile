@@ -8,6 +8,7 @@ WORKDIR /app
 COPY pyproject.toml ./
 COPY alembic.ini ./
 COPY app ./app
+COPY fixtures ./fixtures
 COPY migrations ./migrations
 COPY tests ./tests
 RUN pip install --upgrade pip && pip install -e ".[dev]"
