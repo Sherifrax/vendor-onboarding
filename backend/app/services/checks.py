@@ -21,32 +21,35 @@ class ChecksResult:
     outcome: str
 
 
-async def run(session: AsyncSession, request: Request, mailer: Mailer) -> ChecksResult:
+async def run(
+    session: AsyncSession, request: Request, mailer: Mailer, *, run_compliance: bool = True
+) -> ChecksResult:
     """Run compliance first, then deterministic independent checks and fail closed."""
 
-    compliance = await screen(session, request.company_name, request.vendor_country)
-    request.compliance_clearance = compliance.clearance
-    await log(
-        session,
-        request.tracking_id,
-        "compliance",
-        compliance.clearance,
-        "HOLD" if compliance.is_hold else "PASS",
-        compliance.reason,
-        "system",
-    )
-    if compliance.is_hold:
-        request.status = "on_hold_compliance"
-        await send(
+    if run_compliance:
+        compliance = await screen(session, request.company_name, request.vendor_country)
+        request.compliance_clearance = compliance.clearance
+        await log(
             session,
-            mailer,
-            recipient=request.requestor_email or "",
-            subject="SIMULATED compliance review pending",
-            body="SIMULATED compliance screening is pending review for this request.",
-            kind="compliance_hold",
-            tracking_id=request.tracking_id,
+            request.tracking_id,
+            "compliance",
+            compliance.clearance,
+            "HOLD" if compliance.is_hold else "PASS",
+            compliance.reason,
+            "system",
         )
-        return ChecksResult("compliance_hold")
+        if compliance.is_hold:
+            request.status = "on_hold_compliance"
+            await send(
+                session,
+                mailer,
+                recipient=request.requestor_email or "",
+                subject="SIMULATED compliance review pending",
+                body="SIMULATED compliance screening is pending review for this request.",
+                kind="compliance_hold",
+                tracking_id=request.tracking_id,
+            )
+            return ChecksResult("compliance_hold")
 
     financial = evaluate(
         request.payment_terms_days,

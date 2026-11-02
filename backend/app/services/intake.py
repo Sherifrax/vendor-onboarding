@@ -12,6 +12,7 @@ from app.models import Request
 from app.schemas import ExtractedRequest, IncomingEmail
 from app.services.audit import log
 from app.services.checks import run as run_checks
+from app.services.dispatch import dispatch
 from app.services.validate import ValidationResult, validate_request
 
 
@@ -112,6 +113,8 @@ async def process_email(
     )
     if existing is None:
         session.add(request)
+    prior_company_name = request.company_name
+    prior_vendor_country = request.vendor_country
     request.message_ids = [*request.message_ids, message_id]
     _apply_extracted(request, extracted)
     validation = validate_request(extracted)
@@ -128,7 +131,15 @@ async def process_email(
         "all required Phase 2 fields present",
         "system",
     )
-    checks = await run_checks(session, request, mailer)
+    checks = await run_checks(
+        session,
+        request,
+        mailer,
+        run_compliance=existing is None
+        or prior_company_name != request.company_name
+        or prior_vendor_country != request.vendor_country,
+    )
+    await dispatch(session, request, mailer)
     return IntakeResult(request.tracking_id, checks.outcome)
 
 

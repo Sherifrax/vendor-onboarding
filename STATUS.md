@@ -1,4 +1,4 @@
-# Status (last updated: 2026-11-02 17:04:10 UTC)
+# Status (last updated: 2026-11-02 17:20:13 UTC)
 
 | Phase | Title | Tier | State | Checkpoint | Commit / tag |
 |---|---|---|---|---|---|
@@ -6,7 +6,7 @@
 | 1 | Data model and core services | MUST | done | pass | phase 1: data model and core services / checkpoint-1 |
 | 2 | Intake pipeline | MUST | done | pass | phase 2: intake pipeline / checkpoint-2 |
 | 3 | Checks | MUST | done | pass | phase 3: checks and requirements / checkpoint-3 |
-| 4 | Approvals, forms, final gate | MUST | not started | n.a. | |
+| 4 | Approvals, forms, final gate | MUST | done | pass | phase 4: approvals and final gate / checkpoint-4 |
 | 5 | Documents | SHOULD | not started | n.a. | |
 | 6 | Reminders, scheduler, errors | MUST | not started | n.a. | |
 | 7 | Frontend dashboard | SHOULD | not started | n.a. | |
@@ -16,14 +16,12 @@
 
 ## Last checkpoint output
 
-Phase 3 checkpoint passed on 2026-11-02 UTC:
+Phase 4 checkpoint passed on 2026-11-02 UTC:
 
-- Fresh `vendor_phase3_fresh` database: `alembic upgrade head` succeeded; two seed
-  runs yielded 5 country requirements, 3 compliance fixtures, and 3 synthetic vendors.
-- `make check-3` → `make seed`, `make test`, and `make lint` all passed.
-- `make test` → `17 passed, 1 warning in 0.11s`.
+- `make check-4` → `make seed`, `make test`, and `make lint` all passed.
+- `make test` → `24 passed, 1 warning in 0.25s`.
 - `make lint` → `ruff check .: All checks passed!`; `ruff format --check .:`
-  `28 files already formatted`.
+  `31 files already formatted`.
 - `curl http://localhost:8000/health` → `{"status":"ok","db":"ok"}`.
 
 The one warning is the FastAPI/Starlette TestClient deprecation warning and
@@ -42,17 +40,22 @@ does not fail the suite.
   fixture data is not real compliance screening.
 - Keep document checklist dispatch in Phase 4 alongside its signed upload token. Phase 3
   resolves requirements and holds unknown countries for human review.
+- Dispatch all independent Phase 4 actions in one pass; action tokens are single-use for
+  manager and duplicate decisions, while document upload remains available for Phase 5.
+- Use a PostgreSQL row lock plus unique vendor keys at the final gate; 20 concurrent calls
+  produced exactly one vendor in the checkpoint test.
 
 ## Known gaps / partial items
 
 - The Gmail source has a complete batch-processing adapter contract, but OAuth credential
   wiring is deferred until a real Gmail deployment is configured.
-- Manager/duplicate/document action links and the final gate are deferred to Phase 4.
+- File upload, storage, and document review are deferred to Phase 5; the document link
+  currently shows the exact checklist only.
 - Outbound mail remains `ConsoleMailer`; SMTP, SES, and Gmail OAuth are not configured.
 
 ## Next action
 
-- Begin Phase 4: dispatch, responder forms, and final gate.
+- Begin Phase 5: private document upload, storage, classification, and review.
 
 ## Environment
 
