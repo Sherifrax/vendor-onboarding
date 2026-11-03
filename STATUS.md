@@ -10,24 +10,18 @@
 | 5 | Documents | SHOULD | done | pass | phase 5: document handling / checkpoint-5 |
 | 6 | Reminders, scheduler, errors | MUST | done | pass | phase 6: reminders and error handling / checkpoint-6 |
 | 7 | Frontend dashboard | SHOULD | done | pass | phase 7: frontend dashboard / checkpoint-7 |
-| 8 | Test suite and evidence | MUST | not started | n.a. | |
+| 8 | Test suite and evidence | MUST | done | pass | phase 8: test suite and evidence / checkpoint-8 |
 | 9 | AWS deployment | SHOULD | not started | n.a. | |
 | 10 | Docs and demo polish | COULD | not started | n.a. | |
 
 ## Last checkpoint output
 
-Phase 7 checkpoint passed on 2026-11-03 UTC:
+Phase 8 checkpoint passed on 2026-11-03 UTC:
 
-- `make check-7` → seed, backend tests/lint, frontend build/lint, and Vitest all passed.
-- `make test` → `36 passed, 1 warning in 0.41s`.
-- `make lint` → `ruff check .: All checks passed!`; `ruff format --check .:`
-  `40 files already formatted`.
-- `npm run build` → Vite production build passed; `npm run lint` passed; `npm test` →
-  `1 passed`.
-- Live dashboard review passed at 1280 px and 390 px with no browser console errors.
-- The documented manual path was exercised: UI sample intake → manager action link → approval →
-  required-document upload/review → `vendor_created`. This extra document step is required by
-  the country-document gate and is deliberately not bypassed.
+- `backend/tests/test_matrix.py` → all `T01`–`T23` passed.
+- Full backend suite → `64 passed, 1 warning`.
+- `pytest --cov=app/services --cov-fail-under=85` → `85.10%` services coverage.
+- `make evidence` generated `docs/TEST_EVIDENCE.md`.
 
 The one warning is the FastAPI/Starlette TestClient deprecation warning and
 does not fail the suite.
@@ -61,6 +55,8 @@ does not fail the suite.
   project-scoped editorial operations UI. The admin token is held only in React memory.
 - Keep dashboard read APIs admin-token-protected, and retrieve private documents through an
   authenticated in-app download instead of exposing a public storage path.
+- Keep the coverage gate at 85%; the gap was closed by direct tests of deterministic intake,
+  checks, document-validation, and fail-closed paths rather than excluding services.
 
 ## Known gaps / partial items
 
@@ -70,12 +66,11 @@ does not fail the suite.
 - Outbound mail remains `ConsoleMailer`; SMTP, SES, and Gmail OAuth are not configured.
 - The local APScheduler is disabled by default; it has unit coverage but is not left running
   during the checkpoint suite.
-- The Phase 7 dashboard has a smoke test; the full T01–T23 end-to-end matrix and coverage
-  target remain Phase 8 work.
+- Coverage is a local Docker verification result; no performance or scale claim is implied.
 
 ## Next action
 
-- Begin Phase 8: test suite and evidence.
+- Begin Phase 9: AWS deployment only after budget, account, and deployment choices are ready.
 
 ## Environment
 

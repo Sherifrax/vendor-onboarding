@@ -1,6 +1,6 @@
 COMPOSE := docker compose
 
-.PHONY: up down test lint seed check-0 check-7 check-%
+.PHONY: up down test lint seed evidence check-0 check-7 check-8 check-%
 
 up:
 	$(COMPOSE) up --build -d
@@ -60,6 +60,15 @@ check-7:
 	cd frontend && npm run build
 	cd frontend && npm run lint
 	cd frontend && npm test
+
+evidence:
+	$(COMPOSE) run --rm -v $(CURDIR)/docs:/app/docs -v $(CURDIR)/scripts:/app/scripts backend python /app/scripts/generate_test_evidence.py
+
+check-8:
+	$(MAKE) test
+	$(COMPOSE) run --rm backend pytest --cov=app/services --cov-fail-under=85 --cov-report=term-missing
+	$(MAKE) evidence
+	$(MAKE) lint
 
 check-%:
 	@echo "check-$* is not implemented until its phase."
