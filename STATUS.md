@@ -1,4 +1,4 @@
-# Status (last updated: 2026-11-02 17:41:09 UTC)
+# Status (last updated: 2026-11-03 04:43:10 UTC)
 
 | Phase | Title | Tier | State | Checkpoint | Commit / tag |
 |---|---|---|---|---|---|
@@ -9,20 +9,25 @@
 | 4 | Approvals, forms, final gate | MUST | done | pass | phase 4: approvals and final gate / checkpoint-4 |
 | 5 | Documents | SHOULD | done | pass | phase 5: document handling / checkpoint-5 |
 | 6 | Reminders, scheduler, errors | MUST | done | pass | phase 6: reminders and error handling / checkpoint-6 |
-| 7 | Frontend dashboard | SHOULD | not started | n.a. | |
+| 7 | Frontend dashboard | SHOULD | done | pass | phase 7: frontend dashboard / checkpoint-7 |
 | 8 | Test suite and evidence | MUST | not started | n.a. | |
 | 9 | AWS deployment | SHOULD | not started | n.a. | |
 | 10 | Docs and demo polish | COULD | not started | n.a. | |
 
 ## Last checkpoint output
 
-Phase 6 checkpoint passed on 2026-11-02 UTC:
+Phase 7 checkpoint passed on 2026-11-03 UTC:
 
-- `make check-6` → `make seed`, `make test`, and `make lint` all passed.
-- `make test` → `35 passed, 1 warning in 0.39s`.
+- `make check-7` → seed, backend tests/lint, frontend build/lint, and Vitest all passed.
+- `make test` → `36 passed, 1 warning in 0.41s`.
 - `make lint` → `ruff check .: All checks passed!`; `ruff format --check .:`
-  `39 files already formatted`.
-- `curl http://localhost:8000/health` → `{"status":"ok","db":"ok"}`.
+  `40 files already formatted`.
+- `npm run build` → Vite production build passed; `npm run lint` passed; `npm test` →
+  `1 passed`.
+- Live dashboard review passed at 1280 px and 390 px with no browser console errors.
+- The documented manual path was exercised: UI sample intake → manager action link → approval →
+  required-document upload/review → `vendor_created`. This extra document step is required by
+  the country-document gate and is deliberately not bypassed.
 
 The one warning is the FastAPI/Starlette TestClient deprecation warning and
 does not fail the suite.
@@ -52,6 +57,10 @@ does not fail the suite.
   will use an external scheduler in Phase 9. The job endpoint requires the admin token.
 - Record workflow alerts and `ERROR` audit events in independent transactions so a mail
   transport failure cannot erase the audit evidence.
+- Use a Vite React/TypeScript dashboard with Tailwind available for utility styling and a
+  project-scoped editorial operations UI. The admin token is held only in React memory.
+- Keep dashboard read APIs admin-token-protected, and retrieve private documents through an
+  authenticated in-app download instead of exposing a public storage path.
 
 ## Known gaps / partial items
 
@@ -61,10 +70,12 @@ does not fail the suite.
 - Outbound mail remains `ConsoleMailer`; SMTP, SES, and Gmail OAuth are not configured.
 - The local APScheduler is disabled by default; it has unit coverage but is not left running
   during the checkpoint suite.
+- The Phase 7 dashboard has a smoke test; the full T01–T23 end-to-end matrix and coverage
+  target remain Phase 8 work.
 
 ## Next action
 
-- Begin Phase 7: frontend dashboard.
+- Begin Phase 8: test suite and evidence.
 
 ## Environment
 

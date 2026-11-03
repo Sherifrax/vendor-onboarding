@@ -1,6 +1,6 @@
 COMPOSE := docker compose
 
-.PHONY: up down test lint seed check-0 check-%
+.PHONY: up down test lint seed check-0 check-7 check-%
 
 up:
 	$(COMPOSE) up --build -d
@@ -52,6 +52,14 @@ check-6:
 	$(MAKE) seed
 	$(MAKE) test
 	$(MAKE) lint
+
+check-7:
+	$(MAKE) seed
+	$(MAKE) test
+	$(MAKE) lint
+	cd frontend && npm run build
+	cd frontend && npm run lint
+	cd frontend && npm test
 
 check-%:
 	@echo "check-$* is not implemented until its phase."

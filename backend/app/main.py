@@ -7,16 +7,19 @@ from typing import Annotated
 
 from fastapi import FastAPI, Form, Header, HTTPException, status
 from fastapi import Request as HttpRequest
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import select
 from starlette.datastructures import UploadFile
+from starlette.middleware.cors import CORSMiddleware
 
 from app.ai import DocumentClassifier, FakeAI, get_extractor
 from app.config import get_settings
 from app.db import SessionLocal, check_database
 from app.errors import record_error
 from app.mail import ConsoleMailer
-from app.models import Document
+from app.models import AuditLog, Document, EmailOutbox, Vendor
 from app.models import Request as VendorRequest
 from app.scheduler import start_scheduler
 from app.schemas import IncomingEmail, IntakeResponse
@@ -50,6 +53,13 @@ app.state.document_classifier: DocumentClassifier = (
 app.state.mailer = ConsoleMailer()
 app.state.storage = get_storage(settings)
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "X-Admin-Token"],
+)
 
 
 @app.exception_handler(Exception)
@@ -105,6 +115,96 @@ async def _valid_token(token: str, purpose: str):
         if action is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="invalid action link")
         return action
+
+
+def _row(model: object) -> dict[str, object]:
+    """Expose a JSON-safe read model without leaking SQLAlchemy internals or action tokens."""
+
+    table = getattr(model, "__table__")
+    return jsonable_encoder({column.name: getattr(model, column.name) for column in table.columns})
+
+
+def _require_admin(token: str | None) -> None:
+    if token != settings.admin_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="admin token required")
+
+
+@app.get("/requests", tags=["admin"])
+async def list_requests(
+    x_admin_token: Annotated[str | None, Header()] = None,
+) -> list[dict[str, object]]:
+    """Return read-only workflow state for the dashboard."""
+
+    _require_admin(x_admin_token)
+    async with SessionLocal() as session:
+        rows = (
+            await session.scalars(select(VendorRequest).order_by(VendorRequest.created_at.desc()))
+        ).all()
+    return [_row(row) for row in rows]
+
+
+@app.get("/requests/{tracking_id}", tags=["admin"])
+async def get_request(
+    tracking_id: str, x_admin_token: Annotated[str | None, Header()] = None
+) -> dict[str, object]:
+    """Return a dashboard detail view with fields, timeline, documents, and emails."""
+
+    _require_admin(x_admin_token)
+    async with SessionLocal() as session:
+        request = await session.get(VendorRequest, tracking_id)
+        if request is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="request not found")
+        documents = (
+            await session.scalars(select(Document).where(Document.tracking_id == tracking_id))
+        ).all()
+        audit = (
+            await session.scalars(
+                select(AuditLog)
+                .where(AuditLog.tracking_id == tracking_id)
+                .order_by(AuditLog.timestamp_utc.desc())
+            )
+        ).all()
+        emails = (
+            await session.scalars(
+                select(EmailOutbox)
+                .where(EmailOutbox.tracking_id == tracking_id)
+                .order_by(EmailOutbox.id.desc())
+            )
+        ).all()
+    return {
+        "request": _row(request),
+        "documents": [_row(row) for row in documents],
+        "audit": [_row(row) for row in audit],
+        "emails": [_row(row) for row in emails],
+    }
+
+
+@app.get("/vendors", tags=["admin"])
+async def list_vendors(
+    x_admin_token: Annotated[str | None, Header()] = None,
+) -> list[dict[str, object]]:
+    """Return the simulated ERP vendor master for the dashboard."""
+
+    _require_admin(x_admin_token)
+    async with SessionLocal() as session:
+        rows = (await session.scalars(select(Vendor).order_by(Vendor.created_at.desc()))).all()
+    return [_row(row) for row in rows]
+
+
+@app.get("/audit", tags=["admin"])
+async def list_audit(
+    x_admin_token: Annotated[str | None, Header()] = None,
+) -> list[dict[str, object]]:
+    """Return a bounded append-only audit timeline for dashboard inspection."""
+
+    _require_admin(x_admin_token)
+    async with SessionLocal() as session:
+        rows = (
+            await session.scalars(
+                select(AuditLog).order_by(AuditLog.timestamp_utc.desc()).limit(200)
+            )
+        ).all()
+    return [_row(row) for row in rows]
 
 
 @app.get("/forms/manager/{token}", response_class=HTMLResponse, tags=["forms"])
@@ -340,6 +440,25 @@ async def download_document(token: str) -> Response:
             media_type=document.mime,
             headers={"Content-Disposition": f'attachment; filename="{document.original_filename}"'},
         )
+
+
+@app.get("/documents/{document_id}/content", tags=["admin"])
+async def download_document_for_admin(
+    document_id: int, x_admin_token: Annotated[str | None, Header()] = None
+) -> Response:
+    """Stream a private document to an authenticated dashboard session."""
+
+    _require_admin(x_admin_token)
+    async with SessionLocal() as session:
+        document = await session.get(Document, document_id)
+        if document is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="document not found")
+        content = await app.state.storage.get(document.storage_key)
+    return Response(
+        content=content,
+        media_type=document.mime,
+        headers={"Content-Disposition": f'attachment; filename="{document.original_filename}"'},
+    )
 
 
 @app.post("/gate/{tracking_id}", tags=["gate"])
